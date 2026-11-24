@@ -252,6 +252,41 @@ Some text with a [[WikiLink]]."""
             '<p><a class="wikilink" href="/bar/">foo</a></p>'
         )
 
+    def _wl(self, text):
+        return markdown.markdown(text, extensions=['wikilinks'])
+
+    def test_ac_001_dot_in_label(self):
+        self.assertEqual(
+            self._wl('[[Node.js]]'),
+            '<p><a class="wikilink" href="/Node.js/">Node.js</a></p>'
+        )
+
+    def test_ac_002_parentheses_in_label(self):
+        self.assertEqual(
+            self._wl('[[Python (programming language)]]'),
+            '<p><a class="wikilink" href="/Python_(programming_language)/">'
+            'Python (programming language)</a></p>'
+        )
+
+    def test_ac_003_apostrophe_in_label(self):
+        self.assertEqual(
+            self._wl("[[Rock 'n' Roll]]"),
+            '<p><a class="wikilink" href="/Rock_\'n\'_Roll/">Rock \'n\' Roll</a></p>'
+        )
+
+    def test_ac_004_plain_label_unchanged(self):
+        self.assertEqual(
+            self._wl('[[Some Page]]'),
+            '<p><a class="wikilink" href="/Some_Page/">Some Page</a></p>'
+        )
+
+    def test_ac_005_empty_and_unclosed_stay_plain(self):
+        self.assertEqual(self._wl('[[]]'), '<p>[[]]</p>')
+        self.assertEqual(self._wl('[[Unclosed'), '<p>[[Unclosed</p>')
+
+    def test_ac_006_closing_bracket_in_label_stays_plain(self):
+        self.assertEqual(self._wl('[[a]b]]'), '<p>[[a]b]]</p>')
+
 
 class TestAdmonition(unittest.TestCase):
     """ Test Admonition Extension. """
