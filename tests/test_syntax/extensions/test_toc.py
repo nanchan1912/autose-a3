@@ -1494,6 +1494,50 @@ class TestTOC(TestCase):
             extensions=[TocExtension(), 'footnotes']
         )
 
+    def _no_toc_md(self, text):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        md.convert(text)
+        return md
+
+    def test_ac_001_no_toc_excluded_from_tokens(self):
+        md = self._no_toc_md('[TOC]\n\n# Intro\n\n## Changelog {: .no-toc }\n\n## Usage')
+        self.assertEqual(md.toc_tokens, [{
+            'level': 1, 'id': 'intro', 'name': 'Intro', 'html': 'Intro',
+            'data-toc-label': '',
+            'children': [{
+                'level': 2, 'id': 'usage', 'name': 'Usage', 'html': 'Usage',
+                'data-toc-label': '', 'children': []
+            }]
+        }])
+
+    def test_ac_002_no_toc_excluded_from_toc_html(self):
+        md = self._no_toc_md('[TOC]\n\n# Intro\n\n## Changelog {: .no-toc }\n\n## Usage')
+        self.assertNotIn('changelog', md.toc)
+        self.assertIn('href="#usage"', md.toc)
+
+    def test_ac_003_no_toc_keeps_id_class_permalink(self):
+        import markdown
+        html = markdown.markdown(
+            '## Changelog {: .no-toc }',
+            extensions=['toc', 'attr_list'],
+            extension_configs={'toc': {'permalink': True}}
+        )
+        self.assertIn('id="changelog"', html)
+        self.assertIn('class="no-toc"', html)
+        self.assertIn('href="#changelog"', html)
+
+    def test_ac_004_no_toc_with_other_classes(self):
+        md = self._no_toc_md('## Changelog {: .fancy .no-toc }\n\n## Usage')
+        self.assertEqual([t['id'] for t in md.toc_tokens], ['usage'])
+
+    def test_ac_005_other_classes_not_excluded(self):
+        md = self._no_toc_md('## A {: .fancy }\n\n## B')
+        self.assertEqual([t['id'] for t in md.toc_tokens], ['a', 'b'])
+
+    def test_ac_006_no_toc_id_still_reserved(self):
+        md = self._no_toc_md('## Notes {: .no-toc }\n\n## Notes')
+        self.assertEqual([t['id'] for t in md.toc_tokens], ['notes_1'])
+
 
 class testStripTags(TestCase):
 
