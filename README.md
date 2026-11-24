@@ -124,7 +124,8 @@ design under my direction, and I reviewed everything it produced.
   limitations). The tables and numbers in the report are generated from the run data by
   `scripts/make_report.py`.
 - The answer to the clarification questions on issue #5 was written by me as the maintainer.
-- **Added on 24 Nov by the coding agent at my request, after my own review of the submission:** the
+- **Added on 24 Nov by the coding agent at my request, after my own review of the submission:** ADR-011 and
+  ADR-012 (my reasoning from the E1 interpretation and the build-check bug, put into the Nygard template), the
   git-history note above, the correction of the E2 design-retry claim in the report (with the cause taken
   from the run logs), one-line explanations of the failed runs in `results/runs.md`, and the total token
   count in this README.
