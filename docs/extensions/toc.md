@@ -96,6 +96,13 @@ version of the Table of Contents. `html` contains the fully rendered HTML
 content of the heading and has not been sanitized in any way. This may be used
 with your own custom sanitation to create custom table of contents.
 
+### Excluding Headings
+
+If this extension is used in conjunction with the [Attribute Lists Extension],
+a heading with the class `no-toc` (for example `## Changelog {: .no-toc }`) is
+left out of the Table of Contents. The heading is otherwise unchanged: it still
+gets its `id`, anchor and permalink, and keeps its class.
+
 ### Custom Labels
 
 In most cases, the text label in the Table of Contents should match the text of
