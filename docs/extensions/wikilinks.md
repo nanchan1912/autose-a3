@@ -53,6 +53,18 @@ extensions: [wikilinks]
 [[Wiki Link]]
 ```
 
+To use different link text than the page name, add a label after a pipe:
+``[[Page name|label]]``. The URL is built from the page name only. The label
+may contain any character except `|` and `]`. An empty or blank label falls
+back to the page name.
+
+``` md-render
+---
+extensions: [wikilinks]
+---
+[[Wiki Link|the label]]
+```
+
 ## Usage
 
 See [Extensions](index.md) for general extension usage. Use `wikilinks` as the
