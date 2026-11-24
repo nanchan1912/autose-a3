@@ -600,3 +600,58 @@ class TestAbbr(TestCase):
         self.assertEqual(ext.abbrs, {})
         md.convert('*[foo]: Foo Definition')
         self.assertEqual(ext.abbrs, {'foo': 'Foo Definition'})
+
+
+    def _render(self, ext, md, text):
+        md.reset()
+        return md.convert(text)
+
+    def test_ac_001_load_glossary_replaces_after_registration(self):
+        ext = AbbrExtension(glossary={'HTML': 'Old title', 'CSS': 'Cascading Style Sheets'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'Hyper Text Markup Language'})
+        md.reset()
+        self.assertEqual(
+            md.convert('HTML and CSS'),
+            '<p><abbr title="Hyper Text Markup Language">HTML</abbr> and '
+            '<abbr title="Cascading Style Sheets">CSS</abbr></p>'
+        )
+
+    def test_ac_002_load_glossary_twice_last_wins(self):
+        ext = AbbrExtension(glossary={'HTML': 'Old title'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'First'})
+        ext.load_glossary({'HTML': 'Second'})
+        md.reset()
+        self.assertEqual(md.convert('HTML'), '<p><abbr title="Second">HTML</abbr></p>')
+
+    def test_ac_003_preloaded_glossary_beats_config(self):
+        ext = AbbrExtension(glossary={'HTML': 'Config title', 'CSS': 'Cascading Style Sheets'})
+        ext.load_glossary({'HTML': 'Preloaded title'})
+        md = Markdown(extensions=[ext])
+        self.assertEqual(
+            md.convert('HTML and CSS'),
+            '<p><abbr title="Preloaded title">HTML</abbr> and '
+            '<abbr title="Cascading Style Sheets">CSS</abbr></p>'
+        )
+
+    def test_ac_004_document_definition_beats_loaded_glossary(self):
+        ext = AbbrExtension(glossary={'HTML': 'Old title'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'Loaded title'})
+        md.reset()
+        self.assertEqual(
+            md.convert('HTML\n\n*[HTML]: Document title'),
+            '<p><abbr title="Document title">HTML</abbr></p>'
+        )
+
+    def test_ac_005_load_glossary_adds_new_keys(self):
+        ext = AbbrExtension(glossary={'HTML': 'Hyper Text Markup Language'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'CSS': 'Cascading Style Sheets'})
+        md.reset()
+        self.assertEqual(
+            md.convert('HTML and CSS'),
+            '<p><abbr title="Hyper Text Markup Language">HTML</abbr> and '
+            '<abbr title="Cascading Style Sheets">CSS</abbr></p>'
+        )
