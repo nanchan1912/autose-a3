@@ -186,7 +186,7 @@ def remove_fnrefs(root: etree.Element) -> etree.Element:
                 carry_text = f'{child.tail or ""}{carry_text}'
                 parent.remove(child)
             elif carry_text:
-                child.tail = carry_text
+                child.tail = f'{child.tail or ""}{carry_text}'
                 carry_text = ""
         if carry_text:
             parent.text = f'{parent.text or ""}{carry_text}'
