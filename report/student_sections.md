@@ -26,9 +26,9 @@ My decision: I'd lean towards switching to Sonnet to reduce costs, but I'd first
 ## E2 interpretation and design change
 I expected that when the implementer wrote its own tests, more bugs would slip through the hidden tests.
 
-Interestingly, that didn't happen. Both E2 and the default configuration passed all 15 hidden tests.
+Interestingly, that didn't happen. Both E2 and the default configuration passed all 19 hidden tests (I1-I5).
 
-However, I don't think this means the two approaches are equally good. E2 needed a design retry in three out of four issues, while the default configuration got approved in the first review every time.
+However, I don't think this means the two approaches are equally good. E2 needed a design retry in three out of five issues, while the default configuration got approved in the first review every time.
 
 The clearest example was I2. The implementer's tests missed a case where `load_glossary` was called twice before the extension was loaded. The reviewer caught this, sent the implementation back, and an additional round was needed.
 
