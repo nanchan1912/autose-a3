@@ -52,7 +52,6 @@ class AbbrExtension(Extension):
         super().__init__(**kwargs)
         self.abbrs = {}
         self.glossary = {}
-        self._extended = False
 
     def reset(self):
         """ Clear all previously defined abbreviations. """
@@ -68,15 +67,11 @@ class AbbrExtension(Extension):
         """
         Adds `dictionary` to our glossary.
 
-        Once the extension has been added to Markdown, any abbreviations that already exist will be
-        overwritten (call `reset()` on the Markdown instance to apply). Before that, existing entries
-        take priority, so a preloaded glossary wins over the `glossary` config option.
+        Any abbreviations that already exist will be overwritten (call `reset()` on the
+        Markdown instance to apply).
         """
         if dictionary:
-            if self._extended:
-                self.glossary = {**self.glossary, **dictionary}
-            else:
-                self.glossary = {**dictionary, **self.glossary}
+            self.glossary = {**self.glossary, **dictionary}
 
     def extendMarkdown(self, md):
         """
@@ -91,7 +86,6 @@ class AbbrExtension(Extension):
         # flake8: noqa: E501 75-78
         if (self.config['glossary'][0]):
             self.glossary = {**self.config['glossary'][0], **self.glossary}
-        self._extended = True
         self.abbrs.update(self.glossary)
         md.registerExtension(self)
         md.treeprocessors.register(AbbrTreeprocessor(md, self.abbrs), 'abbr', 7)

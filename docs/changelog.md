@@ -16,8 +16,9 @@ See the [Contributing Guide](contributing.md) for details.
 
 ### Fixed
 
-* Abbr: `load_glossary` now overwrites existing abbreviations when called after
-  the extension has been added to Markdown.
+* Abbr: `load_glossary` now overwrites existing abbreviations. A glossary loaded
+  before the extension is added to Markdown still takes priority over the
+  `glossary` config option.
 * Support automatic links with URL schemes other than HTTP and FTP, such as
   `<ssh://example.org>` (#1244).
 * Fix quadratic-time id generation in the `toc` extension when many headers
