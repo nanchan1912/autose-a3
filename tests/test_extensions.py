@@ -182,6 +182,44 @@ class TestWikiLinks(unittest.TestCase):
             '<p>foo  bar</p>'
         )
 
+    def _wl(self, text):
+        return markdown.markdown(text, extensions=['wikilinks'])
+
+    def test_ac_001_dot_in_label(self):
+        self.assertEqual(
+            self._wl('[[Node.js]]'),
+            '<p><a class="wikilink" href="/Node.js/">Node.js</a></p>'
+        )
+
+    def test_ac_002_parentheses_in_label(self):
+        self.assertEqual(
+            self._wl('[[Python (programming language)]]'),
+            '<p><a class="wikilink" href="/Python_(programming_language)/">'
+            'Python (programming language)</a></p>'
+        )
+
+    def test_ac_003_apostrophes_in_label(self):
+        self.assertEqual(
+            self._wl("[[Rock 'n' Roll]]"),
+            '<p><a class="wikilink" href="/Rock_\'n\'_Roll/">Rock \'n\' Roll</a></p>'
+        )
+
+    def test_ac_004_plain_label_unchanged(self):
+        self.assertEqual(
+            self._wl('[[Some Page]]'),
+            '<p><a class="wikilink" href="/Some_Page/">Some Page</a></p>'
+        )
+
+    def test_ac_005_malformed_stays_plain_text(self):
+        for text, expected in [
+            ('[[]]', '<p>[[]]</p>'),
+            ('[[Foo', '<p>[[Foo</p>'),
+            ('[[a]b]]', '<p>[[a]b]]</p>'),
+        ]:
+            out = self._wl(text)
+            self.assertEqual(out, expected)
+            self.assertNotIn('<a', out)
+
     def testSimpleSettings(self):
         """ Test Simple Settings. """
 
