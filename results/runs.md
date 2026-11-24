@@ -39,5 +39,9 @@
 | [45373589196](https://github.com/nanchan1912/autose-a3/actions/runs/45373589196) | 2026-11-24 | review | E1-sees-rationale | I4 | #10 | changes_requested | 0.0979 | request_changes |
 | [45373603927](https://github.com/nanchan1912/autose-a3/actions/runs/45373603927) | 2026-11-24 | review | E1-sees-rationale | I1 | #11 | approved | 0.0953 | approve |
 | [45373616981](https://github.com/nanchan1912/autose-a3/actions/runs/45373616981) | 2026-11-24 | review | E1-sees-rationale | I4 | #12 | approved | 0.1404 | approve |
+| [45375233794](https://github.com/nanchan1912/autose-a3/actions/runs/45375233794) | 2026-11-24 | full | default | I1 | #13 | approved | 0.2905 | approve |
+| [45384299804](https://github.com/nanchan1912/autose-a3/actions/runs/45384299804) | 2026-11-24 | - | - | - | - | skipped/no summary (skipped) | - | |
+| [45450932031](https://github.com/nanchan1912/autose-a3/actions/runs/45450932031) | 2026-11-24 | full | default | I5 | #24 | approved | 0.642 | approve |
+| [45450952996](https://github.com/nanchan1912/autose-a3/actions/runs/45450952996) | 2026-11-24 | full | E2-self-test | I5 | #25 | approved | 0.4005 | approve |
 
-Total over 37 runs: input tokens (incl. cache) 3,788,994, output tokens 166,197, cost $5.46.
+Total over 40 runs: input tokens (incl. cache) 4,666,867, output tokens 203,264, cost $6.79.

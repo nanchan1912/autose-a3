@@ -175,8 +175,10 @@ def split_by_permission(changed: list[str], allowed_kinds: tuple[str, ...]) -> t
 
 def removed_tests(diff_text: str) -> list[str]:
     """Names of test methods that a diff deletes (and does not add back)."""
-    removed = set(re.findall(r'^-\s*def (test\w*)\(', diff_text, re.M))
-    added = set(re.findall(r'^\+\s*def (test\w*)\(', diff_text, re.M))
+    # [ \t]* and not \s*: \s would also match a newline, so a removed blank line followed by an
+    # unchanged `def test_...` context line was wrongly counted as a deleted test.
+    removed = set(re.findall(r'^-[ \t]*def (test\w*)\(', diff_text, re.M))
+    added = set(re.findall(r'^\+[ \t]*def (test\w*)\(', diff_text, re.M))
     return sorted(removed - added)
 
 

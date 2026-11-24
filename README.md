@@ -10,7 +10,7 @@
 - **Models:** analyst, implementer and tester on `claude-sonnet-5-5` (effort medium); reviewer on
   `claude-opus-5-5` (effort high). Agents run as headless Claude Code CLI `2.1.330` processes.
   Variants for the experiments are in [workflow/variants.json](workflow/variants.json).
-- **Demo video:** TODO link
+- **Demo video:** TODO add the link here
 
 ## How to trigger the workflow
 
@@ -87,13 +87,25 @@ never written to code, logs or prompts. Workflows triggered from forks do not re
 
 ## Cost and tokens
 
-A hard monthly spending limit was set in the Anthropic console before the first run. Each agent call
-also has a dollar cap (`--max-budget-usd`), each build job $8 and each run $20 (see
-`workflow/autose/config.py`). Total tokens used: see the last line of [results/runs.md](results/runs.md).
+The runs used a Claude subscription token (`CLAUDE_CODE_OAUTH_TOKEN`), not a pay-per-token API key. Extra
+(pay-as-you-go) usage is disabled on the subscription, so spending is hard-capped at the plan price; on top
+of that each agent call has a dollar cap (`--max-budget-usd`), each build job $8 and each run $20 (see
+`workflow/autose/config.py`). The dollar figures in the results are the list-price equivalents computed by
+Claude Code. Total tokens used: see the last line of [results/runs.md](results/runs.md).
 
 ## Use of AI
 
-TODO: describe honestly which parts were written with a coding agent (for example the orchestrator,
-workflows, scripts and prompts were drafted with Claude Code and reviewed by me) and which are my own
-(the ADRs and their reasoning, the report). The course policy requires the ADRs and their reasoning
-to be the student's own.
+Following the course policy, substantial AI help is declared here.
+
+- **Written with a coding agent (Claude Code, Claude Opus 5.5) and reviewed by me:** the workflow files in
+  `.github/workflows/`, the orchestrator and checks in `workflow/autose/`, the agent prompts in
+  `workflow/prompts/` (the requirements prompt embeds my own A1 skill verbatim), the unit tests, the scripts
+  in `scripts/`, the five issue texts, the seeded PRs, the hidden tests, and the architecture views.
+  The agent also ran the GitHub setup, the experiment runs and the result collection on my instructions.
+- **My own work:** the reasoning in every ADR (`architecture/decisions/`; I wrote the reasons, the agent put
+  them into the Nygard template and added the factual description of what the code does), my predictions
+  for E1 and E2 (recorded before the experiments), and the discussion parts of the report (the three most
+  important decisions, the interpretation of E1 and E2, where the reviewer was wrong, hindsight and
+  limitations). The tables and numbers in the report are generated from the run data by
+  `scripts/make_report.py`.
+- The answer to the clarification questions on issue #5 was written by me as the maintainer.
