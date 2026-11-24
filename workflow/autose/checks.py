@@ -239,7 +239,8 @@ def check_build(repo: Path, base: str, max_diff_lines: int, git) -> Check:
     log.append(f'$ flake8 on changed files: {len(head_f)} findings, {len(new)} new\n' + '\n'.join(new[:30]))
     if new:
         c.problems.append(f'{len(new)} new flake8 findings: ' + '; '.join(new[:8]))
-    diff = git.diff(base)
+    git.git("add", "-A", "-N")  # make new files visible to git diff
+    diff = git.git("diff", base)  # working tree vs base: the check runs before the commit
     n = sum(1 for ln in diff.splitlines() if ln[:1] in '+-' and ln[:3] not in ('+++', '---'))
     if n > max_diff_lines:
         c.problems.append(f'diff has {n} changed lines, more than the limit of {max_diff_lines}')
