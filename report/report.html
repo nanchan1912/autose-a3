@@ -1,0 +1,165 @@
+<!doctype html><html><head><meta charset="utf-8"><title>AutoSE A3 report</title>
+<style>
+@page { size: A4; margin: 15mm 14mm 15mm 14mm; }
+body { font-family: "Segoe UI", Arial, sans-serif; font-size: 9.6pt; line-height: 1.33; color: #111; }
+h1 { font-size: 15pt; margin: 0 0 2mm 0; } h2 { font-size: 12pt; margin: 4mm 0 1.5mm; border-bottom: 1px solid #999; }
+h3 { font-size: 10.2pt; margin: 3mm 0 1mm; } p { margin: 1mm 0 1.6mm; } ul { margin: 1mm 0 1.6mm 4mm; padding-left: 3mm; }
+table { border-collapse: collapse; width: 100%; margin: 1.5mm 0 2.5mm; font-size: 8.4pt; }
+th, td { border: 1px solid #aaa; padding: 1.2mm 1.5mm; vertical-align: top; text-align: left; } th { background: #eee; }
+code { font-family: Consolas, monospace; font-size: 8.4pt; } .small { font-size: 8.2pt; color: #333; }
+.ok { color: #0a6b1f; font-weight: 600; } .bad { color: #a10b0b; font-weight: 600; }
+.todo { background: #fff3b0; border: 1px solid #d9b500; padding: 2mm; margin: 2mm 0; }
+.mermaid { margin: 1mm 0; text-align: center; } .mermaid svg { max-height: 125mm; } .pb { page-break-before: always; }
+a { color: #0645ad; text-decoration: none; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad: true, theme: 'neutral', flowchart: {useMaxWidth: true}, sequence: {useMaxWidth: true, mirrorActors: false}});</script>
+</head><body>
+<h1>AutoSE Assignment 3: an agentic issue-to-pull-request workflow</h1>
+<p class="small">Repository: <a href="https://github.com/nanchan1912/autose-a3">https://github.com/nanchan1912/autose-a3</a> (Python-Markdown pinned at <code>3f2c551</code>).
+All runs, PRs and reviews: <a href="https://github.com/nanchan1912/autose-a3/blob/main/results/runs.md">results/runs.md</a>. ADRs:
+<a href="https://github.com/nanchan1912/autose-a3/tree/main/architecture/decisions">architecture/decisions/</a>.</p>
+
+<h2>1. Architecture</h2>
+<p>A label <code>autose</code> or a comment <code>/autose</code> by a maintainer starts <code>autose.yml</code>: a <b>gate</b> job
+(authorisation, command parsing), then up to three <b>rounds</b> (reusable <code>autose-round.yml</code>), then <b>finalize</b>.
+In a round, a Python orchestrator runs stages 1-4 as a fixed state machine with three agents and a deterministic check
+after every stage, then pushes the branch and opens the PR (stage 5, no agent); <code>ci.yml</code> and a release check
+follow; the independent reviewer runs in its own job (<code>autose-review.yml</code>, stage 6). If it requests changes,
+the next round resumes at the stage its findings point to. Agents are headless Claude Code processes with fixed tool
+allow lists, JSON output schemas, turn and dollar limits; none of them holds a GitHub token.</p>
+<h3>Component view</h3>
+<div class="mermaid">
+flowchart TB
+  ISS["Issue: label autose or /autose"] --> G["gate job: authorisation, command"]
+  G --> O
+  subgraph BUILD["build job (agent step has no GitHub token)"]
+    direction LR
+    O["Orchestrator: state machine + deterministic checks + git"]
+    AN["Analyst, Sonnet 5.5: stages 1-2, read-only"]
+    IM["Implementer, Sonnet 5.5: stage 3, production code"]
+    TE["Tester, Sonnet 5.5: stage 4, tests/ only"]
+    O --> AN
+    O --> IM
+    O --> TE
+  end
+  O --> REL["Release step: push branch, open PR (token)"]
+  REL --> CI["ci.yml + release check: stage 5"]
+  CI --> RV
+  subgraph REVIEW["review job, fresh runner (no build artifacts)"]
+    RV["Reviewer, Opus 5.5: stage 6, read + run code, no token, no push"] --> POST["post COMMENT review"]
+  end
+  POST --> HUM(["Maintainer decides: merge or close"])
+  POST -. "request changes: next round, max 2" .-> O
+  BUILD -. "artifacts: spec, design, diff, test report, transcripts, ledgers" .-> ART[("Workflow artifacts")]
+</div>
+<h3>Stage map</h3>
+<table><tr><th>#</th><th>Stage</th><th>Agent</th><th>Artifact</th><th>Check (decided by code)</th><th>On failure</th></tr>
+<tr><td>1</td><td>Requirements</td><td>Analyst (A1 skill)</td><td><code>spec.md</code></td><td>every AC has given/when/then, an exact observable result, no vague words, no ASSUMPTION; or BLOCKED with questions</td><td>retry once; BLOCKED: ask on the issue and stop</td></tr>
+<tr><td>2</td><td>Design</td><td>Analyst (fresh session, A2 ARCHITECTURE.md)</td><td><code>design.md</code></td><td>named files exist or are new; named functions/classes exist or are new; allowed paths; a planned test per AC</td><td>retry once, then stop</td></tr>
+<tr><td>3</td><td>Implementation</td><td>Implementer</td><td><code>diff.patch</code></td><td>installs, compiles, imports, converts; no new flake8 findings; diff non-empty and &lt; 800 lines; non-production edits reverted</td><td>retry (3 per design), then design once</td></tr>
+<tr><td>4</td><td>Testing</td><td>Tester (separate)</td><td><code>test_report.md</code></td><td>full suite passes; every AC has a passing <code>test_ac_00N</code>; no deleted tests</td><td>implementer, then design once</td></tr>
+<tr><td>5</td><td>Release</td><td>none</td><td><code>pr.md</code> + PR</td><td>PR open at the tested commit and <code>ci.yml</code> green (3.11, 3.13, flake8)</td><td>stop</td></tr>
+<tr><td>6</td><td>Review</td><td>Reviewer (own job, Opus)</td><td><code>review.md</code></td><td>request changes iff a blocking/major finding with evidence, failing suite, deleted tests or protected paths</td><td>new round at the routed stage, max 2</td></tr></table>
+<h3>Sequence view of one real run (<a href="https://github.com/nanchan1912/autose-a3/actions/runs/45375233794">run 45375233794</a>, issue #1)</h3>
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor M as Maintainer
+    participant G as gate
+    participant O as Orchestrator
+    participant A as Analyst
+    participant I as Implementer
+    participant T as Tester
+    participant CI as CI + release check
+    participant R as Reviewer
+    participant F as finalize
+    M->>G: trigger on issue #1
+    G->>O: round 0 (start at requirements)
+    O->>A: requirements (sonnet-5-5)
+    A-->>O: 5 turns, $0.05
+    Note over O: requirements: PASS
+    O->>A: design (sonnet-5-5)
+    A-->>O: 5 turns, $0.07
+    Note over O: design: PASS (design v1)
+    O->>I: implement (sonnet-5-5)
+    I-->>O: 5 turns, $0.03
+    Note over O: implement: PASS (attempt 1)
+    O->>T: test (sonnet-5-5)
+    T-->>O: 6 turns, $0.05
+    Note over O: test: PASS (OK (skipped=52))
+    O->>CI: push branch, PR #13
+    CI-->>O: CI success, stage 5 PASS
+    CI->>R: PR #13 (issue + diff + code only)
+    R-->>F: approve (1 findings, opus-5-5, $0.09)
+    F->>M: hand-over comment (approved)
+
+</div>
+
+<h2>2. Design decisions</h2>
+<table><tr><th>ADR</th><th>Decision</th><th>Chosen</th><th>Main option rejected</th><th>Main reason</th><th>Status</th></tr>
+<tr><td>ADR-001</td><td>D1 Splitting the work</td><td>4 roles: analyst, implementer, separate tester, reviewer</td><td>one agent for everything</td><td>separate tester reduces confirmation bias; more agents add cost and coordination overhead</td><td>Accepted</td></tr><tr><td>ADR-002</td><td>D2 Control flow</td><td>Python state machine decides every transition</td><td>AI manager / planner</td><td>predictable order, retries and transitions; easier to debug and reproduce</td><td>Accepted</td></tr><tr><td>ADR-003</td><td>D3 Hand-offs</td><td>structured stage documents, only what each stage needs</td><td>passing full conversations</td><td>less bias and blind agreement; fewer tokens</td><td>Accepted</td></tr><tr><td>ADR-004</td><td>D4 State</td><td>workflow artifacts + PR branch; restart from stage 1</td><td>separate database / resuming partial runs</td><td>record of every stage without a database; clean, predictable restarts</td><td>Accepted</td></tr><tr><td>ADR-005</td><td>D5 Tools</td><td>read files + run Python; git/GitHub only in workflow code</td><td>agents with git/GitHub access</td><td>limits damage from wrong code or malicious instructions; auditable</td><td>Accepted</td></tr><tr><td>ADR-006</td><td>D6 Models</td><td>Sonnet 5.5 authors, Opus 5.5 reviewer</td><td>Opus everywhere</td><td>reviewing needs careful reasoning; Opus everywhere costs more without proportional gain</td><td>Accepted</td></tr><tr><td>ADR-007</td><td>D7 Checks</td><td>programmatic checks; verdict computed from findings</td><td>LLM judge</td><td>objective, reproducible; no subjective sole judgment</td><td>Accepted</td></tr><tr><td>ADR-008</td><td>D8 Reviewer independence</td><td>own job, other model, no token, no build artifacts, evidence required</td><td>reviewer in the implementer&#x27;s context</td><td>reviewer must judge code and evidence, not the implementer&#x27;s confidence</td><td>Accepted</td></tr><tr><td>ADR-009</td><td>D9 Safety and failures</td><td>budgets, timeouts, input checks, isolation</td><td>unlimited execution</td><td>predictable cost and security over occasionally finishing a run</td><td>Accepted</td></tr><tr><td>ADR-010</td><td>D10 Triggers</td><td>maintainers only; queue runs per issue</td><td>anyone can trigger; cancel running run</td><td>untrusted text and credits; avoid race conditions</td><td>Accepted</td></tr></table>
+<h3>The three decisions that mattered most</h3>
+<div class="todo"><b>To write (your own words) - section "Three decisions that mattered most" in report/student_sections.md:</b> Pick three ADRs and discuss each with evidence from the runs (about 1.5 pages). Data you can cite is in sections 3 and 4.</div>
+
+<h2>3. Decision experiments</h2>
+<h3>E1 - reviewer independence (ADR-006, ADR-008): 5 seeded PRs x 3 reviewer variants</h3>
+<p>Each seeded PR passes the existing test suite and flake8; S1-S3 contain a planted defect, S4-S5 are correct (ground truth in <code>experiment/seeded_prs/labels.json</code>; the hidden tests independently confirm it). Variants: <code>default</code> = Opus 5.5, isolated context; <code>E1-same-model</code> = Sonnet 5.5 (the implementer's model); <code>E1-sees-rationale</code> = Opus 5.5 that also reads the author's confident PR description.</p>
+<table><tr><th>PR</th><th>Ground truth</th><th>default</th><th>E1-same-model</th><th>E1-sees-rationale</th></tr>
+<tr><td>S1 (<a href="https://github.com/nanchan1912/autose-a3/pull/8">#8</a>)</td><td>defect: regression + test tampering</td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45372971146">request changes</a> (2 blocking/major)<br><span class="small">$0.13</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373463045">request changes</a> (2 blocking/major)<br><span class="small">$0.05</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373552473">request changes</a> (2 blocking/major)<br><span class="small">$0.13</span></td></tr>
+<tr><td>S2 (<a href="https://github.com/nanchan1912/autose-a3/pull/9">#9</a>)</td><td>defect: functional bug against the issue</td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45372986465">request changes</a> (2 blocking/major)<br><span class="small">$0.08</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373479354">request changes</a> (2 blocking/major)<br><span class="small">$0.08</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373572043">request changes</a> (2 blocking/major)<br><span class="small">$0.11</span></td></tr>
+<tr><td>S3 (<a href="https://github.com/nanchan1912/autose-a3/pull/10">#10</a>)</td><td>defect: regression (excluded headings lose id and permalink)</td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45372997822">request changes</a> (3 blocking/major)<br><span class="small">$0.11</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373493843">request changes</a> (2 blocking/major)<br><span class="small">$0.03</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373589196">request changes</a> (3 blocking/major)<br><span class="small">$0.10</span></td></tr>
+<tr><td>S4 (<a href="https://github.com/nanchan1912/autose-a3/pull/11">#11</a>)</td><td>clean: none</td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373019535">approve</a><br><span class="small">$0.09</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373509194">approve</a><br><span class="small">$0.03</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373603927">approve</a><br><span class="small">$0.10</span></td></tr>
+<tr><td>S5 (<a href="https://github.com/nanchan1912/autose-a3/pull/12">#12</a>)</td><td>clean: none</td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373038740">approve</a><br><span class="small">$0.16</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373520113">approve</a><br><span class="small">$0.03</span></td><td><a class="ok" href="https://github.com/nanchan1912/autose-a3/actions/runs/45373616981">approve</a><br><span class="small">$0.14</span></td></tr>
+<tr><th colspan="2">Correct (final verdict) / agent verdict alone / total cost</th><th>5/5 / 5/5 / $0.58</th><th>5/5 / 5/5 / $0.23</th><th>5/5 / 5/5 / $0.57</th></tr></table>
+<div class="todo"><b>To write (your own words) - section "E1 interpretation and design change" in report/student_sections.md:</b> Compare with your prediction (ADR-008: you expected fewer catches for same-model and sees-rationale). Say what the result means and what you changed or would change (e.g. a superseded ADR).</div>
+<h3>E2 - separate tester (ADR-001): default vs implementer writes its own tests, issues I1-I5</h3>
+<table><tr><th>Issue</th><th>Variant</th><th>Outcome</th><th>Stages (attempts)</th><th>Review verdicts</th><th>Hidden tests</th><th>Cost</th></tr>
+<tr><td>I1</td><td>default</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45371807528">approved</a></td><td>requ pass(1), desi pass(1), impl pass(2), test pass(1)</td><td>approve</td><td>3/3</td><td>$0.54</td></tr>
+<tr><td>I1</td><td>E2-self-test</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372548055">approved</a></td><td>requ pass(1), desi pass(1), impl pass(2), test pass(1)</td><td>approve</td><td>3/3</td><td>$0.37</td></tr>
+<tr><td>I2</td><td>default</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372283123">approved</a></td><td>requ pass(1), desi pass(1), impl pass(2), test pass(1)</td><td>approve</td><td>4/4</td><td>$0.43</td></tr>
+<tr><td>I2</td><td>E2-self-test</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372565600">approved</a></td><td>requ pass(1), desi pass(2), impl pass(3), test pass(2)</td><td>request_changes approve</td><td>4/4</td><td>$0.77</td></tr>
+<tr><td>I3</td><td>default</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372297979">approved</a></td><td>requ pass(1), desi pass(1), impl pass(2), test pass(1)</td><td>approve</td><td>4/4</td><td>$0.50</td></tr>
+<tr><td>I3</td><td>E2-self-test</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372580653">approved</a></td><td>requ pass(1), desi pass(2), impl pass(2), test pass(1)</td><td>approve</td><td>4/4</td><td>$0.48</td></tr>
+<tr><td>I4</td><td>default</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372312608">approved</a></td><td>requ pass(1), desi pass(1), impl pass(2), test pass(1)</td><td>approve</td><td>4/4</td><td>$0.41</td></tr>
+<tr><td>I4</td><td>E2-self-test</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372592900">approved</a></td><td>requ pass(1), desi pass(2), impl pass(2), test pass(1)</td><td>approve</td><td>4/4</td><td>$0.50</td></tr>
+<tr><td>I5</td><td>default</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372324302">stopped at requirements</a></td><td>requ stop</td><td>-</td><td>-</td><td>$0.03</td></tr>
+<tr><td>I5</td><td>E2-self-test</td><td><a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372607941">stopped at requirements</a></td><td>requ stop</td><td>-</td><td>-</td><td>$0.04</td></tr>
+</table>
+<div class="todo"><b>To write (your own words) - section "E2 interpretation and design change" in report/student_sections.md:</b> Compare with your prediction (ADR-001). Say what the result means and what you changed or would change.</div>
+<h2>4. Results</h2>
+<p>37 workflow runs in total; 25 of them ran agents. The others are the infrastructure failures fixed during the first hour (missing model credential; the gate lacked permission to comment on PRs) and are kept in <code>results/results.csv</code> for completeness.</p>
+<table><tr><th>Stage</th><th>Runs that reached it</th><th>Passed</th><th>Passed on the first attempt</th></tr>
+<tr><td>requirements</td><td>10</td><td>8</td><td>8</td></tr>
+<tr><td>design</td><td>8</td><td>8</td><td>5</td></tr>
+<tr><td>implement</td><td>8</td><td>8</td><td>0</td></tr>
+<tr><td>test</td><td>8</td><td>8</td><td>7</td></tr>
+<tr><td>release (PR open + CI)</td><td>8</td><td>8</td><td>-</td></tr>
+<tr><td>review (runs with a review)</td><td>23</td><td colspan="2">14 ended approved, 10 had at least one "request changes"</td></tr></table>
+<p class="small">Requirements stops are the vague issue I5, which was BLOCKED with clarification questions as designed. In every run before the fix in PR #22, the first implementation attempt was rejected by a bug in the build check (it compared only committed changes); the agent's edit was correct and the second attempt passed. After the fix, <a href="https://github.com/nanchan1912/autose-a3/actions/runs/45375233794">run 45375233794</a> passed on the first attempt.</p>
+<h3>Hidden acceptance tests</h3><table><tr><th>Branch</th><th>Issue</th><th>Passed</th><th>Failed tests</th></tr>
+<tr><td><code>autose/issue-1</code> @ c47274994d</td><td>I1</td><td class="ok">3/3</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-2</code> @ 5c98274aa7</td><td>I2</td><td class="ok">4/4</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-3</code> @ 7f9bb1e56a</td><td>I3</td><td class="ok">4/4</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-4</code> @ c8564bab65</td><td>I4</td><td class="ok">4/4</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-1-E2-self-test</code> @ 198eb7d3c6</td><td>I1</td><td class="ok">3/3</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-2-E2-self-test</code> @ a71a2af136</td><td>I2</td><td class="ok">4/4</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-3-E2-self-test</code> @ 5a193b5df1</td><td>I3</td><td class="ok">4/4</td><td class="small"></td></tr>
+<tr><td><code>autose/issue-4-E2-self-test</code> @ 278e6b4c46</td><td>I4</td><td class="ok">4/4</td><td class="small"></td></tr>
+<tr><td><code>seeded/S1</code> @ 7cb6e29926</td><td>I2</td><td class="bad">3/4</td><td class="small">test_load_glossary_before_loading_still_wins_over_config</td></tr>
+<tr><td><code>seeded/S2</code> @ b3cceeb648</td><td>I3</td><td class="bad">1/4</td><td class="small">test_config_and_build_url_receive_target test_label_used_as_text_target_used_for_url test_meta_overrides_still_apply</td></tr>
+<tr><td><code>seeded/S3</code> @ 068761268e</td><td>I4</td><td class="bad">2/4</td><td class="small">test_excluded_heading_still_gets_id_and_permalink test_ids_stay_unique_across_excluded_and_included_headings</td></tr>
+<tr><td><code>seeded/S4</code> @ a196c3eb86</td><td>I1</td><td class="ok">3/3</td><td class="small"></td></tr>
+<tr><td><code>seeded/S5</code> @ 8a5c41b14e</td><td>I4</td><td class="ok">4/4</td><td class="small"></td></tr>
+</table>
+<h3>What the reviewer found on the pipeline's own PRs</h3>
+<p>13 findings in total: 1 major, 8 minor, 4 nit.</p><ul>
+<li>I2 E2-self-test round 0: [major] load_glossary only overwrites once <code>_extended</code> is True. Before the extension is added to Markdown, repeated load_glossary calls still keep the first value, which is the bug the issue reports for repeated calls. The docstring was rewritten to describe this as intended, so it no longer promises overwr (<a href="https://github.com/nanchan1912/autose-a3/actions/runs/45372565600">run</a>)</li>
+</ul>
+<div class="todo"><b>To write (your own words) - section "Where the reviewer was wrong" in report/student_sections.md:</b> Using the findings above and the hidden tests, say where the reviewer was wrong or missed something (or that it was not observed, and why that may be).</div>
+<p><b>Tokens and cost.</b> All runs together: 3,788,994 input tokens (incl. cache), 166,197 output tokens; model cost as computed by Claude Code $5.46. The runs used a Claude subscription token, so this is the list-price equivalent, not an invoice.</p>
+<h2>5. Hindsight</h2>
+<div class="todo"><b>To write (your own words) - section "Hindsight" in report/student_sections.md:</b> If you started again tomorrow, which decision would you change first, and why? (half a page)</div>
+<h2>6. Limitations and threats to validity</h2>
+<div class="todo"><b>To write (your own words) - section "Limitations" in report/student_sections.md:</b> At least three. Candidates: small sample (5 issues, mostly one run each, non-deterministic models); the seeded defects, issues and hidden tests were written by the same people who built the workflow; I1 reuses the A2 bug; the build-check bug affected attempt counts before PR #22; the I5 clarification was answered by the experimenter; one model family for every role.</div>
+</body></html>
