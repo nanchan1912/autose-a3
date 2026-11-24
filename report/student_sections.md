@@ -28,7 +28,7 @@ I expected that when the implementer wrote its own tests, more bugs would slip t
 
 Interestingly, that didn't happen. Both E2 and the default configuration passed all 19 hidden tests (I1-I5).
 
-However, I don't think this means the two approaches are equally good. E2 needed a design retry in three out of five issues, while the default configuration got approved in the first review every time.
+However, I don't think this means the two approaches are equally good. The default configuration got approved in the first review every time, while E2 needed a second review round on I2. (E2 also shows a design retry on I3 and I4, but the run logs show that this was the design check rejecting a documentation section name that did not exist, e.g. "Usage section" in `docs/extensions/wikilinks.md`. The design stage is identical in both variants, so these retries are run-to-run noise and not an effect of E2.)
 
 The clearest example was I2. The implementer's tests missed a case where `load_glossary` was called twice before the extension was loaded. The reviewer caught this, sent the implementation back, and an additional round was needed.
 
