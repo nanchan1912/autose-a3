@@ -1,0 +1,23 @@
+{
+  "default": {
+    "description": "Final design: analyst + implementer + tester on Sonnet 5.5, reviewer on Opus 5.5 in its own job with an isolated context."
+  },
+  "E1-same-model": {
+    "description": "Experiment E1a: the reviewer uses the same model as the implementer (Sonnet 5.5). Everything else as default.",
+    "models": {"reviewer": "claude-sonnet-5-5"},
+    "efforts": {"reviewer": "medium"}
+  },
+  "E1-sees-rationale": {
+    "description": "Experiment E1b: the reviewer also gets the PR description written by the author (implementer rationale). Everything else as default.",
+    "reviewer_context": "with_rationale"
+  },
+  "E2-self-test": {
+    "description": "Experiment E2: no separate tester. The implementer writes the tests for its own code (same model, gets its own implementation notes).",
+    "tester_mode": "implementer"
+  },
+  "smoke-haiku": {
+    "description": "Cheap smoke test of the plumbing: every role on Haiku 5.5. Not used for results.",
+    "models": {"analyst": "claude-haiku-5-5", "implementer": "claude-haiku-5-5", "tester": "claude-haiku-5-5", "reviewer": "claude-haiku-5-5"},
+    "efforts": {"reviewer": "medium"}
+  }
+}

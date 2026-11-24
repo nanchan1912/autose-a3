@@ -1,0 +1,66 @@
+# Project CI for the fork. Replaces upstream's tox/changelog/deploy workflows.
+#
+# It runs in three ways:
+#   * on pull requests and pushes made by people (normal CI);
+#   * called by the autose pipeline (workflow_call) as the stage-5 check, because pull requests
+#     opened with GITHUB_TOKEN do not trigger `pull_request` workflows;
+#   * by hand (workflow_dispatch).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch or tag to test
+        required: true
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to test (the head of the autose pull request)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: python -m pip install --quiet -e ".[testing]"
+      - name: Full test suite
+        run: python -m unittest discover tests
+
+  lint:
+    name: flake8 (errors only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: flake8 (syntax errors and pyflakes; the baseline at 3f2c551 has zero findings)
+        run: |
+          python -m pip install --quiet flake8
+          python -m flake8 --select=E9,F markdown tests

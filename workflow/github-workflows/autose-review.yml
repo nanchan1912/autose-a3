@@ -1,0 +1,105 @@
+# Stage 6: the independent reviewer (reusable).
+#
+# Independence by construction:
+#   * its own job on a fresh runner: it downloads none of the build job's artifacts, so it never
+#     sees spec.md, design.md, the implementer's notes or any agent conversation;
+#   * it gets only the issue (+ maintainer comments), the diff, and the repository at the PR head;
+#   * its own prompt and, by default, a different model (Opus 5.5) from the authors (Sonnet 5.5);
+#   * the agent step has no GitHub token and the job has contents: read, so it can read and run
+#     code but cannot push; the review is posted by a separate step as a COMMENT review, which can
+#     never count as an approval for merging.
+name: autose review
+
+on:
+  workflow_call:
+    inputs:
+      round: {type: string, required: true}
+      pr: {type: string, required: true}
+      issue: {type: string, required: false, default: ''}
+      variant: {type: string, required: false, default: default}
+    secrets:
+      ANTHROPIC_API_KEY: {required: false}
+      CLAUDE_CODE_OAUTH_TOKEN: {required: false}
+    outputs:
+      verdict:
+        value: ${{ jobs.review.outputs.verdict }}
+      route:
+        value: ${{ jobs.review.outputs.route }}
+
+permissions: {}
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.330
+
+jobs:
+  review:
+    name: stage 6 independent review
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write   # only used by the posting step
+      issues: read
+    outputs:
+      verdict: ${{ steps.review.outputs.verdict }}
+      route: ${{ steps.review.outputs.route }}
+    env:
+      PYTHONPATH: ${{ github.workspace }}/tool/workflow
+      PR: ${{ inputs.pr }}
+      ISSUE: ${{ inputs.issue }}
+      ROUND: ${{ inputs.round }}
+      VARIANT: ${{ inputs.variant }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: tool
+          sparse-checkout: workflow
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Claude Code (pinned)
+        run: npm install --global --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - name: Read the PR and the issue (GitHub token, no agents)
+        id: prep
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m autose review-prepare --pr "$PR" --issue "$ISSUE" --out "$RUNNER_TEMP/rv-in"
+      - name: Check out the PR head
+        uses: actions/checkout@v5
+        with:
+          path: work
+          ref: ${{ steps.prep.outputs.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/workflow/
+            !/experiment/
+            !/results/
+            !/architecture/
+            !/scripts/
+            !/.github/
+            !/report.pdf
+      - name: Install the project at the PR head
+        run: python -m pip install --quiet -e "./work[testing]"
+      - name: Review (agent; no GitHub token in this step)
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          python -m autose review --work work --in "$RUNNER_TEMP/rv-in" --out "$RUNNER_TEMP/rv-out" \
+            --round "$ROUND" --variant "$VARIANT"
+      - name: Post the review on the PR (GitHub token, no agents)
+        if: steps.review.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m autose review-post --art "$RUNNER_TEMP/rv-out"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autose-review-r${{ inputs.round }}
+          path: ${{ runner.temp }}/rv-out
+          retention-days: 90

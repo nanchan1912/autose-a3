@@ -1,0 +1,200 @@
+# autose: issue in, reviewed pull request out.
+#
+# Triggers
+#   * a maintainer adds the label `autose` to an issue            -> full pipeline (stages 1-6)
+#   * a maintainer comments `/autose [variant=NAME]` on an issue  -> full pipeline
+#   * a maintainer comments `/autose` on a pull request           -> review only (stage 6)
+#   * workflow_dispatch (Actions tab)                             -> either mode, used for experiments
+#
+# Shape: gate -> round 0 (build, CI, release check, review) -> round 1 and round 2 only if the
+# reviewer requested changes -> finalize. Each round is the reusable workflow autose-round.yml.
+# A person always decides whether to merge; nothing in this workflow can merge.
+name: autose
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      number:
+        description: Issue number (mode full) or pull request number (mode review)
+        required: true
+        type: string
+      mode:
+        description: full = stages 1-6 from an issue, review = stage 6 on an existing pull request
+        type: choice
+        options: [full, review]
+        default: full
+      variant:
+        description: Configuration variant from workflow/variants.json
+        type: string
+        default: default
+
+# No permissions by default; every job asks for exactly what it needs.
+permissions: {}
+
+# One run per issue/PR at a time. Events that are not autose commands get a unique group, so a
+# random comment can never cancel a queued real run.
+concurrency:
+  group: >-
+    ${{ (github.event_name == 'workflow_dispatch'
+         || (github.event_name == 'issues' && github.event.label.name == 'autose')
+         || (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/autose')))
+        && format('autose-{0}', github.event.issue.number || inputs.number)
+        || format('autose-ignored-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    # Cheap filter first, so that unrelated issue events do not even start a runner.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'issues' && github.event.label.name == 'autose')
+      || (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/autose')
+          && github.event.comment.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      mode: ${{ steps.gate.outputs.mode }}
+      issue: ${{ steps.gate.outputs.issue }}
+      pr: ${{ steps.gate.outputs.pr }}
+      variant: ${{ steps.gate.outputs.variant }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: tool
+          sparse-checkout: workflow
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check who asked and what for
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}/tool/workflow
+        run: python -m autose gate
+
+  round0:
+    needs: gate
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.mode == 'full'
+    uses: ./.github/workflows/autose-round.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
+    with:
+      round: 0
+      prev_round: ''
+      issue: ${{ needs.gate.outputs.issue }}
+      variant: ${{ needs.gate.outputs.variant }}
+      resume_from: requirements
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  round1:
+    needs: [gate, round0]
+    if: needs.round0.outputs.verdict == 'request_changes'
+    uses: ./.github/workflows/autose-round.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
+    with:
+      round: 1
+      prev_round: '0'
+      issue: ${{ needs.gate.outputs.issue }}
+      variant: ${{ needs.gate.outputs.variant }}
+      resume_from: ${{ needs.round0.outputs.route }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  round2:
+    needs: [gate, round1]
+    if: needs.round1.outputs.verdict == 'request_changes'
+    uses: ./.github/workflows/autose-round.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
+    with:
+      round: 2
+      prev_round: '1'
+      issue: ${{ needs.gate.outputs.issue }}
+      variant: ${{ needs.gate.outputs.variant }}
+      resume_from: ${{ needs.round1.outputs.route }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  review_only:
+    needs: gate
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.mode == 'review'
+    uses: ./.github/workflows/autose-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    with:
+      round: '0'
+      pr: ${{ needs.gate.outputs.pr }}
+      issue: ${{ needs.gate.outputs.issue }}
+      variant: ${{ needs.gate.outputs.variant }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  finalize:
+    needs: [gate, round0, round1, round2, review_only]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: tool
+          sparse-checkout: workflow
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Collect every artifact of this run
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: autose-*
+          path: all
+      - name: Summarise, post the hand-over comment, remove the trigger label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}/tool/workflow
+          NEEDS: ${{ toJSON(needs) }}
+          ISSUE: ${{ needs.gate.outputs.issue }}
+          PR: ${{ needs.gate.outputs.pr }}
+          MODE: ${{ needs.gate.outputs.mode }}
+          VARIANT: ${{ needs.gate.outputs.variant }}
+        run: |
+          python -m autose finalize --artifacts all --out "$RUNNER_TEMP/summary" \
+            --issue "$ISSUE" --pr "$PR" --mode "$MODE" --variant "$VARIANT" --needs "$NEEDS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autose-summary
+          path: ${{ runner.temp }}/summary
+          retention-days: 90

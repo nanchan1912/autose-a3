@@ -1,6 +1,6 @@
 # AutoSE Assignment 3: an agentic issue-to-pull-request workflow
 
-- **Fork:** https://github.com/OWNER/markdown  <!-- TODO: replace OWNER with your GitHub user name -->
+- **Repository (fork):** https://github.com/nanchan1912/autose-a3 - contains the full upstream history up to the pinned commit
 - **Upstream:** https://github.com/Python-Markdown/markdown, pinned at commit
   `3f2c5510bd8d64a73ec18342f740371bcde9b20c` (short `3f2c551`, same commit as in A2). The fork's `main`
   starts at that commit; the commits after it only add the assignment material and the seeded bug below.
@@ -63,13 +63,27 @@ scripts/                setup, seeded PRs, experiment runner, hidden-test scorin
 
 1. Fork Python-Markdown, then push this repository's `main` to the fork (it starts at `3f2c551`).
 2. Install the GitHub CLI and run `gh auth login`.
-3. `scripts/setup_github.sh OWNER/markdown settings` - enables issues and Actions, lets Actions
-   open PRs, creates labels, stores `ANTHROPIC_API_KEY` as a repository secret.
-4. `scripts/setup_github.sh OWNER/markdown issues` - opens I1-I5 (#1-#5).
-5. `scripts/setup_github.sh OWNER/markdown protect` - main requires a PR for everybody.
-6. `python scripts/open_seeded_prs.py OWNER/markdown` - opens the five reviewer-check PRs.
+3. `scripts/setup_github.sh OWNER/REPO settings` - enables issues and Actions, lets Actions
+   open PRs, creates labels. Then store one model credential as a secret (see below).
+4. `scripts/setup_github.sh OWNER/REPO issues` - opens I1-I5 (#1-#5).
+5. `scripts/setup_github.sh OWNER/REPO protect` - main requires a PR for everybody.
+6. `python scripts/open_seeded_prs.py OWNER/REPO` - opens the five reviewer-check PRs.
 
 Unit tests of the deterministic checks: `PYTHONPATH=workflow python -m unittest discover -s workflow/autose_tests`.
+
+## Model credentials: why a secret is needed
+
+The agents run inside GitHub Actions, on GitHub's machines, not on a laptop. To call Claude from
+there, the workflow needs a credential stored as an encrypted **repository secret** (Settings ->
+Secrets and variables -> Actions). Exactly one of these is needed:
+
+| Secret | What it is | Cost |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | API key from console.anthropic.com | billed per token; a hard spending limit is set in the console |
+| `CLAUDE_CODE_OAUTH_TOKEN` | long-lived token from `claude setup-token` (needs a Claude Pro/Max subscription) | counts against the subscription's usage limits |
+
+The credential only reaches the steps that run agents (never a step with a GitHub token), and it is
+never written to code, logs or prompts. Workflows triggered from forks do not receive secrets.
 
 ## Cost and tokens
 

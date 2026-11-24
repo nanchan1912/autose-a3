@@ -1,0 +1,199 @@
+# One round of the autose pipeline (reusable). Round 0 runs stages 1-6 from the issue; rounds 1
+# and 2 resume at the stage the reviewer named (design, implement or test) on the same branch.
+#
+#   build (stages 1-4 + 5 push/PR) -> ci (ci.yml on the PR head) -> release_check (stage 5 check)
+#     -> review (stage 6, autose-review.yml, independent job)
+name: autose round
+
+on:
+  workflow_call:
+    inputs:
+      round: {type: number, required: true}
+      prev_round: {type: string, required: false, default: ''}
+      issue: {type: string, required: true}
+      variant: {type: string, required: false, default: default}
+      resume_from: {type: string, required: false, default: requirements}
+    secrets:
+      ANTHROPIC_API_KEY: {required: false}
+      CLAUDE_CODE_OAUTH_TOKEN: {required: false}
+    outputs:
+      verdict:
+        description: approve | request_changes | error | '' (no review happened)
+        value: ${{ jobs.review.outputs.verdict }}
+      route:
+        description: stage the reviewer sends the work back to
+        value: ${{ jobs.review.outputs.route }}
+      pr:
+        value: ${{ jobs.build.outputs.pr }}
+      status:
+        value: ${{ jobs.build.outputs.status }}
+
+permissions: {}
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.330
+
+jobs:
+  build:
+    name: stages 1-5 (round ${{ inputs.round }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write        # push the autose/issue-N branch (main is protected)
+      pull-requests: write   # open/update the pull request
+      issues: read
+    outputs:
+      status: ${{ steps.build.outputs.status }}
+      stopped_at: ${{ steps.build.outputs.stopped_at }}
+      reason: ${{ steps.build.outputs.reason }}
+      pr: ${{ steps.release.outputs.pr }}
+      head_sha: ${{ steps.release.outputs.head_sha }}
+    env:
+      PYTHONPATH: ${{ github.workspace }}/tool/workflow
+      AUTOSE_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      ISSUE: ${{ inputs.issue }}
+      ROUND: ${{ inputs.round }}
+      PREV: ${{ inputs.prev_round }}
+      VARIANT: ${{ inputs.variant }}
+      RESUME: ${{ inputs.resume_from }}
+    steps:
+      # The orchestrator and prompts always come from the default branch, never from the PR branch.
+      - name: Check out the autose code (default branch)
+        uses: actions/checkout@v5
+        with:
+          path: tool
+          sparse-checkout: workflow
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Claude Code (pinned)
+        run: npm install --global --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - name: Fetch the issue and maintainer comments (GitHub token, no agents)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m autose fetch-issue --issue "$ISSUE" --out "$RUNNER_TEMP/autose/issue.json"
+      # The agents' working copy. Sparse checkout leaves out the pipeline's own code, the
+      # experiment material and the workflows; no credentials are stored in it.
+      - name: Check out the working copy for the agents
+        uses: actions/checkout@v5
+        with:
+          path: work
+          # round 0 starts from the default branch; later rounds continue the round-0 branch
+          ref: >-
+            ${{ inputs.round == 0 && github.event.repository.default_branch
+                || (inputs.variant == 'default' && format('autose/issue-{0}', inputs.issue)
+                    || format('autose/issue-{0}-{1}', inputs.issue, inputs.variant)) }}
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/workflow/
+            !/experiment/
+            !/results/
+            !/architecture/
+            !/scripts/
+            !/.github/
+            !/report.pdf
+      - name: Install the project
+        run: python -m pip install --quiet -e "./work[testing]" flake8
+      - name: Download earlier rounds (spec, design, review findings, ledgers)
+        if: inputs.round > 0
+        uses: actions/download-artifact@v4
+        with:
+          pattern: autose-*
+          path: prev
+      - name: Stages 1-4 - requirements, design, implementation, testing (agents; no GitHub token here)
+        id: build
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          extra=()
+          if [ "$ROUND" != "0" ]; then
+            extra=(--prev "prev/autose-build-r$PREV" --review "prev/autose-review-r$PREV/review.json" --prior-ledgers prev)
+          fi
+          python -m autose build --issue-json "$RUNNER_TEMP/autose/issue.json" --work work \
+            --out "$RUNNER_TEMP/autose/art" --round "$ROUND" --variant "$VARIANT" --resume-from "$RESUME" "${extra[@]}"
+      - name: Stage 5 - push the branch and open or update the pull request (GitHub token, no agents)
+        id: release
+        if: steps.build.outputs.status == 'ready'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev_arg=()
+          if [ "$ROUND" != "0" ]; then prev_arg=(--prev "prev/autose-build-r$PREV"); fi
+          python -m autose release --work work --art "$RUNNER_TEMP/autose/art" --round "$ROUND" "${prev_arg[@]}"
+      - name: Upload stage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autose-build-r${{ inputs.round }}
+          path: ${{ runner.temp }}/autose/art
+          retention-days: 90
+
+  ci:
+    needs: build
+    if: needs.build.outputs.status == 'ready' && needs.build.outputs.pr != ''
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+    with:
+      ref: ${{ needs.build.outputs.head_sha }}
+
+  release_check:
+    name: stage 5 check (PR open, CI green)
+    needs: [build, ci]
+    if: always() && needs.build.outputs.status == 'ready' && needs.build.outputs.pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      passed: ${{ steps.check.outputs.passed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: tool
+          sparse-checkout: workflow
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}/tool/workflow
+          PR: ${{ needs.build.outputs.pr }}
+          SHA: ${{ needs.build.outputs.head_sha }}
+          CI_RESULT: ${{ needs.ci.result }}
+          ROUND: ${{ inputs.round }}
+        run: |
+          python -m autose release-check --pr "$PR" --sha "$SHA" --ci-result "$CI_RESULT" \
+            --round "$ROUND" --out "$RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autose-release-r${{ inputs.round }}
+          path: ${{ runner.temp }}/release
+          retention-days: 90
+
+  review:
+    needs: [build, release_check]
+    if: needs.release_check.outputs.passed == 'true'
+    uses: ./.github/workflows/autose-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    with:
+      round: ${{ format('{0}', inputs.round) }}
+      pr: ${{ needs.build.outputs.pr }}
+      issue: ${{ inputs.issue }}
+      variant: ${{ inputs.variant }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
