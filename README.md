@@ -10,7 +10,16 @@
 - **Models:** analyst, implementer and tester on `claude-sonnet-5-5` (effort medium); reviewer on
   `claude-opus-5-5` (effort high). Agents run as headless Claude Code CLI `2.1.330` processes.
   Variants for the experiments are in [workflow/variants.json](workflow/variants.json).
-- **Demo video:** TODO add the link here
+- **Demo video:** https://drive.google.com/drive/folders/1gSMrcYYyEY3c_kF1WOZNoMxY_9WzCURW?usp=drive_link
+- **ADRs:** all 10 decisions (D1-D10) have a full ADR in [architecture/decisions](architecture/decisions),
+  not just the required 8. (Done all 10 for you, Aviral sir uwu.)
+
+## Note on the git history
+
+The design was done first, locally: the architecture views and the ADRs were written before the agent
+code. The history was later squashed and replayed onto the pinned commit, which is why the ADR commit
+(`1d8551c`) and the agent-code commit (`e64f472`) are one second apart. The sentence in ADR-006 about a
+local Haiku plumbing run was added after that run, not at the time the ADR was first written.
 
 ## How to trigger the workflow
 
@@ -91,13 +100,19 @@ The runs used a Claude subscription token (`CLAUDE_CODE_OAUTH_TOKEN`), not a pay
 (pay-as-you-go) usage is disabled on the subscription, so spending is hard-capped at the plan price; on top
 of that each agent call has a dollar cap (`--max-budget-usd`), each build job $8 and each run $20 (see
 `workflow/autose/config.py`). The dollar figures in the results are the list-price equivalents computed by
-Claude Code. Total tokens used: see the last line of [results/runs.md](results/runs.md).
+Claude Code. Total tokens used over all 40 runs: 4,666,867 input tokens (including cache) and 203,264 output
+tokens, about $6.79 at list price (per-run numbers in [results/runs.md](results/runs.md)).
 
 ## Use of AI
 
-Following the course policy, substantial AI help is declared here.
+Following the course policy, substantial AI help is declared here. I designed the workflow and made every
+architectural decision; I used a coding agent (Claude Code, Claude Opus 5.5) as a tool to implement that
+design under my direction, and I reviewed everything it produced.
 
-- **Written with a coding agent (Claude Code, Claude Opus 5.5) and reviewed by me:** the workflow files in
+- **My own work (summary):** the architecture and every design decision behind it (the ADRs' reasoning),
+  the experiment design and predictions, directing the build and the runs, reviewing all generated code and
+  text, and the discussion parts of the report. Details in the last bullet below.
+- **Implemented with a coding agent under my direction and reviewed by me:** the workflow files in
   `.github/workflows/`, the orchestrator and checks in `workflow/autose/`, the agent prompts in
   `workflow/prompts/` (the requirements prompt embeds my own A1 skill verbatim), the unit tests, the scripts
   in `scripts/`, the five issue texts, the seeded PRs, the hidden tests, and the architecture views.
@@ -109,3 +124,8 @@ Following the course policy, substantial AI help is declared here.
   limitations). The tables and numbers in the report are generated from the run data by
   `scripts/make_report.py`.
 - The answer to the clarification questions on issue #5 was written by me as the maintainer.
+- **Added on 24 Nov by the coding agent at my request, after my own review of the submission:** ADR-011 and
+  ADR-012 (my reasoning from the E1 interpretation and the build-check bug, put into the Nygard template), the
+  git-history note above, the correction of the E2 design-retry claim in the report (with the cause taken
+  from the run logs), one-line explanations of the failed runs in `results/runs.md`, and the total token
+  count in this README.

@@ -135,7 +135,7 @@ sequenceDiagram
 </table>
 <p>I expected that when the implementer wrote its own tests, more bugs would slip through the hidden tests.</p>
 <p>Interestingly, that didn&#x27;t happen. Both E2 and the default configuration passed all 19 hidden tests (I1-I5).</p>
-<p>However, I don&#x27;t think this means the two approaches are equally good. E2 needed a design retry in three out of five issues, while the default configuration got approved in the first review every time.</p>
+<p>However, I don&#x27;t think this means the two approaches are equally good. The default configuration got approved in the first review every time, while E2 needed a second review round on I2. (E2 also shows a design retry on I3 and I4, but the run logs show that this was the design check rejecting a documentation section name that did not exist, e.g. &quot;Usage section&quot; in <code>docs/extensions/wikilinks.md</code>. The design stage is identical in both variants, so these retries are run-to-run noise and not an effect of E2.)</p>
 <p>The clearest example was I2. The implementer&#x27;s tests missed a case where <code>load_glossary</code> was called twice before the extension was loaded. The reviewer caught this, sent the implementation back, and an additional round was needed.</p>
 <p>So I&#x27;d say my prediction was partially supported. We didn&#x27;t see more failures in the final results, but the reviewer had to do more work to catch problems that the implementer&#x27;s own tests missed.</p>
 <p>There was also a cost difference: E2 on I2 cost $0.77 compared to $0.43 for the default configuration.</p>

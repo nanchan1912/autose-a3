@@ -16,3 +16,5 @@ what was learned.
 | [ADR-008](ADR-008.md) | D8 Reviewer independence | own job, other model, no token, no build artifacts, evidence required | reviewer in the implementer's context | reviewer must judge code and evidence, not the implementer's confidence | Accepted |
 | [ADR-009](ADR-009.md) | D9 Safety and failures | budgets, timeouts, input checks, isolation | unlimited execution | predictable cost and security over occasionally finishing a run | Accepted |
 | [ADR-010](ADR-010.md) | D10 Triggers | maintainers only; queue runs per issue | anyone can trigger; cancel running run | untrusted text and credits; avoid race conditions | Accepted |
+| [ADR-011](ADR-011.md) | D6/D8 Reviewer model | Sonnet as candidate reviewer, pending harder defects | keep Opus untested | E1: Opus = Sonnet on 5/5 at 2.5x cost | Proposed (would supersede ADR-006) |
+| [ADR-012](ADR-012.md) | D7 Checks | checks are code with their own unit tests | LLM judge | build-check bug rejected every first attempt until #22 | Accepted (amends ADR-007) |
