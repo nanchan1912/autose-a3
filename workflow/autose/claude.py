@@ -28,8 +28,16 @@ _ENV_KEEP = {
 }
 
 
+def credential_summary() -> str:
+    """Which model credential this step has (kind and length only, never the value)."""
+    found = [f"{k} ({len(os.environ[k].strip())} chars)" for k in ('CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY')
+             if os.environ.get(k, '').strip()]
+    return ', '.join(found) or 'NONE - set the CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY repository secret'
+
+
 def agent_env() -> dict:
-    env = {k: v for k, v in os.environ.items() if k in _ENV_KEEP}
+    # Empty values (a secret that is not set) are dropped so they cannot shadow the real credential.
+    env = {k: v for k, v in os.environ.items() if k in _ENV_KEEP and v.strip()}
     env.update({
         'DISABLE_AUTOUPDATER': '1',
         'DISABLE_TELEMETRY': '1',
@@ -177,7 +185,7 @@ def run_agent(*, role: str, role_cfg: dict, call_id: str, system_prompt: str, us
            '--max-turns', str(role_cfg['max_turns']),
            '--max-budget-usd', f"{budget:.2f}",
            '--append-system-prompt-file', str(sys_file.resolve())]
-    log(f"{call_id}: starting {role} on {model} (budget ${budget:.2f}, cwd {cwd})")
+    log(f"{call_id}: starting {role} on {model} (budget ${budget:.2f}, cwd {cwd}, credential: {credential_summary()})")
     t0 = time.time()
     proc = run(cmd, cwd=cwd, timeout=role_cfg['timeout_s'], env=agent_env(), input_text=user_prompt)
     duration = time.time() - t0
