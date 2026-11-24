@@ -1574,3 +1574,12 @@ class testStripTags(TestCase):
             strip_tags('foo &lt; &amp; &lt; bar'),
             'foo &lt; &amp; &lt; bar'
         )
+
+
+class TestTocFootnoteText(TestCase):
+
+    def test_text_between_markup_and_footnote_kept(self):
+        md = Markdown(extensions=['toc', 'footnotes'])
+        md.convert('# *Gamma* x[^1] y\n\n[^1]: note\n')
+        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
+        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
