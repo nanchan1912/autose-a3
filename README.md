@@ -16,10 +16,11 @@
 
 ## Note on the git history
 
-The design was done first, locally: the architecture views and the ADRs were written before the agent
-code. The history was later squashed and replayed onto the pinned commit, which is why the ADR commit
-(`1d8551c`) and the agent-code commit (`e64f472`) are one second apart. The sentence in ADR-006 about a
-local Haiku plumbing run was added after that run, not at the time the ADR was first written.
+The commits on `main` follow the order setup -> architecture views -> ADRs -> agent code. That is the order
+in which things were committed on 24 Nov, not strictly the order in which they were written: the workflow
+code and the design were developed together in one session, and the ADR texts were written from my
+reasoning before the code was committed. The sentence in ADR-006 about a local Haiku plumbing run was added
+after that run.
 
 ## How to trigger the workflow
 
@@ -105,27 +106,23 @@ tokens, about $6.79 at list price (per-run numbers in [results/runs.md](results/
 
 ## Use of AI
 
-Following the course policy, substantial AI help is declared here. I designed the workflow and made every
-architectural decision; I used a coding agent (Claude Code, Claude Opus 5.5) as a tool to implement that
-design under my direction, and I reviewed everything it produced.
+Following the course policy: this project was built together with a coding agent (Claude Code, Claude
+Opus 5.5). It was a collaboration, not a hand-off in either direction.
 
-- **My own work (summary):** the architecture and every design decision behind it (the ADRs' reasoning),
-  the experiment design and predictions, directing the build and the runs, reviewing all generated code and
-  text, and the discussion parts of the report. Details in the last bullet below.
-- **Implemented with a coding agent under my direction and reviewed by me:** the workflow files in
-  `.github/workflows/`, the orchestrator and checks in `workflow/autose/`, the agent prompts in
-  `workflow/prompts/` (the requirements prompt embeds my own A1 skill verbatim), the unit tests, the scripts
-  in `scripts/`, the five issue texts, the seeded PRs, the hidden tests, and the architecture views.
-  The agent also ran the GitHub setup, the experiment runs and the result collection on my instructions.
-- **My own work:** the reasoning in every ADR (`architecture/decisions/`; I wrote the reasons, the agent put
-  them into the Nygard template and added the factual description of what the code does), my predictions
-  for E1 and E2 (recorded before the experiments), and the discussion parts of the report (the three most
-  important decisions, the interpretation of E1 and E2, where the reviewer was wrong, hindsight and
-  limitations). The tables and numbers in the report are generated from the run data by
-  `scripts/make_report.py`.
-- The answer to the clarification questions on issue #5 was written by me as the maintainer.
-- **Added on 24 Nov by the coding agent at my request, after my own review of the submission:** ADR-011 and
-  ADR-012 (my reasoning from the E1 interpretation and the build-check bug, put into the Nygard template), the
-  git-history note above, the correction of the E2 design-retry claim in the report (with the cause taken
-  from the run logs), one-line explanations of the failed runs in `results/runs.md`, and the total token
-  count in this README.
+- **Done mainly by the coding agent, reviewed and accepted by me:** the first proposal for the architecture
+  (four roles, state machine, independent review job), the workflow files in `.github/workflows/`, the
+  orchestrator and checks in `workflow/autose/`, the agent prompts in `workflow/prompts/` (the requirements
+  prompt embeds my own A1 skill verbatim), the unit tests, the scripts in `scripts/`, the issue texts,
+  seeded PRs and hidden tests, the architecture views, the report generator, and running the GitHub setup,
+  the experiments and the result collection.
+- **Done by me:** reviewing and accepting the design; the decisions taken during the project (subscription
+  token instead of an API key, committing the ADRs before the agent code, keeping the vague issue I5 and
+  answering its clarification questions as the maintainer); the reasoning in every ADR; my predictions for
+  E1 and E2, written before the experiments; the discussion parts of the report (the three most important
+  decisions, the interpretation of E1 and E2, where the reviewer was wrong, hindsight and limitations);
+  checking the results; and the demo video.
+- **Done together:** turning my ADR reasoning into Nygard-format ADRs (my reasons, the agent's formatting and
+  factual description of the code); ADR-011 and ADR-012 (from my E1 interpretation and my notes on the
+  build-check bug); finding and fixing the problems that the real runs exposed (missing credential, gate
+  permission, the build-check bug); and the final corrections to the report and `results/runs.md`.
+- The tables and numbers in the report are generated from the run data by `scripts/make_report.py`.
