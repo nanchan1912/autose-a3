@@ -66,7 +66,7 @@ class AbbrExtension(Extension):
     def load_glossary(self, dictionary: dict[str, str]):
         """Adds `dictionary` to our glossary. Any abbreviations that already exist will be overwritten."""
         if dictionary:
-            self.glossary = {**dictionary, **self.glossary}
+            self.glossary = {**self.glossary, **dictionary}
 
     def extendMarkdown(self, md):
         """
@@ -80,7 +80,8 @@ class AbbrExtension(Extension):
         """
         # flake8: noqa: E501 75-78
         if (self.config['glossary'][0]):
-            self.load_glossary(self.config['glossary'][0])
+            # Config is the base; a glossary loaded earlier takes priority.
+            self.glossary = {**self.config['glossary'][0], **self.glossary}
         self.abbrs.update(self.glossary)
         md.registerExtension(self)
         md.treeprocessors.register(AbbrTreeprocessor(md, self.abbrs), 'abbr', 7)
