@@ -23,3 +23,8 @@ compared side by side.
 
 Write down the expected outcome of each experiment *before* running it (in the ADR's Context).
 Negative results are as valuable as positive ones.
+
+## Predictions (recorded 2026-11-24, before any experiment run)
+
+- **E1:** I expect the reviewer to catch fewer planted bugs when it uses the same model as the implementer or is shown the author's confident PR description. A separate model and independent context should make the reviewer less likely to share the implementer's assumptions and overlook mistakes.
+- **E2:** I expect more hidden tests to fail when the implementer writes its own tests. Since the implementer already has assumptions about how its code should work, it may write tests that confirm its implementation rather than independently checking edge cases and missed requirements. A separate tester should provide better test diversity and catch more errors.
