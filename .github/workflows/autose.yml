@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write   # the acknowledgement comment on a PR (review mode)
     outputs:
       run: ${{ steps.gate.outputs.run }}
       mode: ${{ steps.gate.outputs.mode }}
@@ -158,7 +158,7 @@ jobs:
 
   finalize:
     needs: [gate, round0, round1, round2, review_only]
-    if: always() && needs.gate.outputs.run == 'true'
+    if: always() && needs.gate.result == 'success' && needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

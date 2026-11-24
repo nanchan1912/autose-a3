@@ -105,10 +105,13 @@ def cmd_gate(a):
 
     out.update(run='true', mode=mode, variant=variant, actor=actor, reason='ok')
     set_output(**out)
-    g.comment(number, f"autose run started by @{actor} (mode `{mode}`, variant `{variant}`).\n\n"
-                      f"Follow it here: {run_url()}\n\n"
-                      "Every stage uploads its artifact (spec.md, design.md, diff.patch, test_report.md, pr.md, "
-                      "review.md) to the run. A person decides whether to merge; autose never merges.")
+    try:  # the acknowledgement is cosmetic; it must never block the run
+        g.comment(number, f"autose run started by @{actor} (mode `{mode}`, variant `{variant}`).\n\n"
+                          f"Follow it here: {run_url()}\n\n"
+                          "Every stage uploads its artifact (spec.md, design.md, diff.patch, test_report.md, pr.md, "
+                          "review.md) to the run. A person decides whether to merge; autose never merges.")
+    except Exception as e:
+        log(f'could not post the acknowledgement comment: {e}')
     step_summary(f"### autose gate\nStarted by `{actor}`: mode `{mode}`, variant `{variant}`, "
                  f"issue `{out['issue']}`, PR `{out['pr']}`")
 
