@@ -1574,3 +1574,16 @@ class testStripTags(TestCase):
             strip_tags('foo &lt; &amp; &lt; bar'),
             'foo &lt; &amp; &lt; bar'
         )
+
+
+class TestTocNoTocClass(TestCase):
+
+    def test_no_toc_heading_left_out(self):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        md.convert('# Intro\n\n## Changelog {: .no-toc }\n\n## Usage\n')
+        self.assertNotIn('#changelog', md.toc)
+        self.assertIn('#usage', md.toc)
+
+    def test_no_toc_heading_keeps_id(self):
+        html = Markdown(extensions=['toc', 'attr_list']).convert('## Changelog {: .no-toc }')
+        self.assertIn('id="changelog"', html)
