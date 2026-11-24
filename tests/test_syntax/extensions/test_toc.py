@@ -1494,6 +1494,42 @@ class TestTOC(TestCase):
             extensions=[TocExtension(), 'footnotes']
         )
 
+    def _check_name_id(self, source, name, id_, extensions):
+        md = Markdown(extensions=extensions)
+        html = md.convert(source)
+        self.assertEqual(md.toc_tokens[0]['name'], name)
+        self.assertEqual(md.toc_tokens[0]['id'], id_)
+        return html
+
+    def test_ac_001_emphasis_footnote_name_and_id(self):
+        self._check_name_id(
+            '# *Gamma* x[^1] y\n\n[^1]: note\n',
+            'Gamma x y', 'gamma-x-y', ['toc', 'footnotes'])
+
+    def test_ac_002_emphasis_footnote_html_id(self):
+        md = Markdown(extensions=['toc', 'footnotes'])
+        html = md.convert('# *Gamma* x[^1] y\n\n[^1]: note\n')
+        self.assertIn('<h1 id="gamma-x-y">', html)
+
+    def test_ac_003_strong_footnote_name_and_id(self):
+        self._check_name_id(
+            '# **Gamma** x[^1] y\n\n[^1]: note\n',
+            'Gamma x y', 'gamma-x-y', ['toc', 'footnotes'])
+
+    def test_ac_004_code_footnote_name_and_id(self):
+        self._check_name_id(
+            '# `code` x[^1] y\n\n[^1]: note\n',
+            'code x y', 'code-x-y', ['toc', 'footnotes'])
+
+    def test_ac_005_plain_footnote_name_and_id(self):
+        self._check_name_id(
+            '# Gamma x[^1] y\n\n[^1]: note\n',
+            'Gamma x y', 'gamma-x-y', ['toc', 'footnotes'])
+
+    def test_ac_006_no_footnote_emphasis_name_and_id(self):
+        self._check_name_id(
+            '# *Gamma* x y\n', 'Gamma x y', 'gamma-x-y', ['toc'])
+
 
 class testStripTags(TestCase):
 
