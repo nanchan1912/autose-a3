@@ -252,6 +252,54 @@ Some text with a [[WikiLink]]."""
             '<p><a class="wikilink" href="/bar/">foo</a></p>'
         )
 
+    def test_ac_001_label_default_config(self):
+        self.assertEqual(
+            markdown.markdown('[[Some Page|the label]]', extensions=['wikilinks']),
+            '<p><a class="wikilink" href="/Some_Page/">the label</a></p>'
+        )
+
+    def test_ac_002_label_with_base_end_class(self):
+        from markdown.extensions.wikilinks import WikiLinkExtension
+        ext = WikiLinkExtension(base_url='/wiki/', end_url='.html', html_class='foo')
+        self.assertEqual(
+            markdown.markdown('[[Some Page|the label]]', extensions=[ext]),
+            '<p><a class="foo" href="/wiki/Some_Page.html">the label</a></p>'
+        )
+
+    def test_ac_003_build_url_gets_page_name(self):
+        from markdown.extensions.wikilinks import WikiLinkExtension
+
+        def f(label, base, end):
+            return '{}{}{}'.format(base, label, end)
+
+        self.assertEqual(
+            markdown.markdown('[[Some Page|the label]]', extensions=[WikiLinkExtension(build_url=f)]),
+            '<p><a class="wikilink" href="/Some Page/">the label</a></p>'
+        )
+
+    def test_ac_004_label_with_meta(self):
+        from markdown.extensions.wikilinks import WikiLinkExtension
+        text = ('wiki_base_url: /wiki/\nwiki_end_url: .html\nwiki_html_class: custom\n\n'
+                '[[Some Page|the label]]')
+        self.assertEqual(
+            markdown.markdown(text, extensions=['meta', WikiLinkExtension()]),
+            '<p><a class="custom" href="/wiki/Some_Page.html">the label</a></p>'
+        )
+
+    def test_ac_005_label_special_characters(self):
+        self.assertEqual(
+            markdown.markdown('[[Some Page|Hello, World! (v2) & more.]]', extensions=['wikilinks']),
+            '<p><a class="wikilink" href="/Some_Page/">Hello, World! (v2) &amp; more.</a></p>'
+        )
+
+    def test_ac_006_empty_or_blank_label_falls_back(self):
+        self.assertEqual(
+            markdown.markdown('[[Some Page|]] [[Some Page|   ]] [[Some Page]]', extensions=['wikilinks']),
+            '<p><a class="wikilink" href="/Some_Page/">Some Page</a> '
+            '<a class="wikilink" href="/Some_Page/">Some Page</a> '
+            '<a class="wikilink" href="/Some_Page/">Some Page</a></p>'
+        )
+
 
 class TestAdmonition(unittest.TestCase):
     """ Test Admonition Extension. """
