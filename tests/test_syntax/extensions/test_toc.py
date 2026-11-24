@@ -1495,6 +1495,41 @@ class TestTOC(TestCase):
         )
 
 
+    def _toc_fn(self, text, extensions=('toc', 'footnotes')):
+        md = Markdown(extensions=list(extensions))
+        html = md.convert(text)
+        return md, html
+
+    def test_ac_001_footnote_after_em_keeps_name(self):
+        md, _ = self._toc_fn('# *Gamma* x[^1] y\n\n[^1]: note\n')
+        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
+
+    def test_ac_002_footnote_after_em_keeps_id(self):
+        md, html = self._toc_fn('# *Gamma* x[^1] y\n\n[^1]: note\n')
+        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
+        self.assertIn('<h1 id="gamma-x-y">', html)
+
+    def test_ac_003_footnote_after_strong(self):
+        md, _ = self._toc_fn('# **Gamma** x[^1] y\n\n[^1]: note\n')
+        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
+        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
+
+    def test_ac_004_footnote_after_code(self):
+        md, _ = self._toc_fn('# `Gamma` x[^1] y\n\n[^1]: note\n')
+        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
+        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
+
+    def test_ac_005_footnote_plain_heading(self):
+        md, _ = self._toc_fn('# Gamma x[^1] y\n\n[^1]: note\n')
+        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
+        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
+
+    def test_ac_006_inline_markup_no_footnote(self):
+        md, _ = self._toc_fn('# *Gamma* x y\n', extensions=('toc',))
+        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
+        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
+
+
 class testStripTags(TestCase):
 
     def testStripElement(self):
