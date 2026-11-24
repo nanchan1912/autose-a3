@@ -1,0 +1,35 @@
+diff --git a/markdown/extensions/toc.py b/markdown/extensions/toc.py
+index b8afe60..0d9cfc6 100644
+--- a/markdown/extensions/toc.py
++++ b/markdown/extensions/toc.py
+@@ -411,7 +411,8 @@ class TocTreeprocessor(Treeprocessor):
+                     # Remove the data-toc-label attribute as it is no longer needed
+                     del el.attrib['data-toc-label']
+ 
+-                if int(el.tag[-1]) >= self.toc_top and int(el.tag[-1]) <= self.toc_bottom:
++                excluded = 'no-toc' in el.attrib.get('class', '').split()
++                if not excluded and int(el.tag[-1]) >= self.toc_top and int(el.tag[-1]) <= self.toc_bottom:
+                     toc_tokens.append({
+                         'level': int(el.tag[-1]),
+                         'id': unescape(el.attrib["id"]),
+diff --git a/tests/test_syntax/extensions/test_toc.py b/tests/test_syntax/extensions/test_toc.py
+index 12a07d5..7789658 100644
+--- a/tests/test_syntax/extensions/test_toc.py
++++ b/tests/test_syntax/extensions/test_toc.py
+@@ -1574,3 +1574,16 @@ class testStripTags(TestCase):
+             strip_tags('foo &lt; &amp; &lt; bar'),
+             'foo &lt; &amp; &lt; bar'
+         )
++
++
++class TestTocNoTocClass(TestCase):
++
++    def test_no_toc_heading_left_out(self):
++        md = Markdown(extensions=['toc', 'attr_list'])
++        md.convert('# Intro\n\n## Changelog {: .no-toc }\n\n## Usage\n')
++        self.assertNotIn('#changelog', md.toc)
++        self.assertIn('#usage', md.toc)
++
++    def test_no_toc_heading_keeps_id(self):
++        html = Markdown(extensions=['toc', 'attr_list']).convert('## Changelog {: .no-toc }')
++        self.assertIn('id="changelog"', html)

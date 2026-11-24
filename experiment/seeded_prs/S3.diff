@@ -1,0 +1,30 @@
+diff --git a/markdown/extensions/toc.py b/markdown/extensions/toc.py
+index b8afe60..78b8c3f 100644
+--- a/markdown/extensions/toc.py
++++ b/markdown/extensions/toc.py
+@@ -396,6 +396,8 @@ class TocTreeprocessor(Treeprocessor):
+         for el in doc.iter():
+             if isinstance(el.tag, str) and self.header_rgx.match(el.tag):
+                 self.set_level(el)
++                if 'no-toc' in el.attrib.get('class', '').split():
++                    continue
+                 innerhtml = render_inner_html(remove_fnrefs(el), self.md)
+                 name = strip_tags(innerhtml)
+ 
+diff --git a/tests/test_syntax/extensions/test_toc.py b/tests/test_syntax/extensions/test_toc.py
+index 12a07d5..0125ab7 100644
+--- a/tests/test_syntax/extensions/test_toc.py
++++ b/tests/test_syntax/extensions/test_toc.py
+@@ -1574,3 +1574,12 @@ class testStripTags(TestCase):
+             strip_tags('foo &lt; &amp; &lt; bar'),
+             'foo &lt; &amp; &lt; bar'
+         )
++
++
++class TestTocNoTocClass(TestCase):
++
++    def test_no_toc_heading_left_out(self):
++        md = Markdown(extensions=['toc', 'attr_list'])
++        md.convert('# Intro\n\n## Changelog {: .no-toc }\n\n## Usage\n')
++        self.assertNotIn('#changelog', md.toc)
++        self.assertIn('#usage', md.toc)

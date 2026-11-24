@@ -1,0 +1,30 @@
+diff --git a/markdown/extensions/toc.py b/markdown/extensions/toc.py
+index b8afe60..ba65225 100644
+--- a/markdown/extensions/toc.py
++++ b/markdown/extensions/toc.py
+@@ -186,7 +186,7 @@ def remove_fnrefs(root: etree.Element) -> etree.Element:
+                 carry_text = f'{child.tail or ""}{carry_text}'
+                 parent.remove(child)
+             elif carry_text:
+-                child.tail = carry_text
++                child.tail = f'{child.tail or ""}{carry_text}'
+                 carry_text = ""
+         if carry_text:
+             parent.text = f'{parent.text or ""}{carry_text}'
+diff --git a/tests/test_syntax/extensions/test_toc.py b/tests/test_syntax/extensions/test_toc.py
+index 12a07d5..556f776 100644
+--- a/tests/test_syntax/extensions/test_toc.py
++++ b/tests/test_syntax/extensions/test_toc.py
+@@ -1574,3 +1574,12 @@ class testStripTags(TestCase):
+             strip_tags('foo &lt; &amp; &lt; bar'),
+             'foo &lt; &amp; &lt; bar'
+         )
++
++
++class TestTocFootnoteText(TestCase):
++
++    def test_text_between_markup_and_footnote_kept(self):
++        md = Markdown(extensions=['toc', 'footnotes'])
++        md.convert('# *Gamma* x[^1] y\n\n[^1]: note\n')
++        self.assertEqual(md.toc_tokens[0]['name'], 'Gamma x y')
++        self.assertEqual(md.toc_tokens[0]['id'], 'gamma-x-y')
