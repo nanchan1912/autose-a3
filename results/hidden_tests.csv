@@ -12,3 +12,6 @@ seeded/S2,I3,b3cceeb648,1,4,False,test_config_and_build_url_receive_target test_
 seeded/S3,I4,068761268e,2,4,False,test_excluded_heading_still_gets_id_and_permalink test_ids_stay_unique_across_excluded_and_included_headings
 seeded/S4,I1,a196c3eb86,3,3,True,
 seeded/S5,I4,8a5c41b14e,4,4,True,
+autose/issue-5,I5,648ca0fbe3,4,4,True,
+autose/issue-5-E2-self-test,I5,3756bdc4b7,4,4,True,
+autose/issue-1,I1,951d868c4b,3,3,True,

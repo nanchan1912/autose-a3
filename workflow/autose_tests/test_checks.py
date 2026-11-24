@@ -113,6 +113,8 @@ class Guards(unittest.TestCase):
     def test_removed_tests(self):
         diff = '-    def test_old(self):\n+    def test_new(self):\n-    def test_moved(self):\n+    def test_moved(self):\n'
         self.assertEqual(checks.removed_tests(diff), ['test_old'])
+        # a removed blank line before an unchanged test is not a deleted test (seen on seeded PR S1)
+        self.assertEqual(checks.removed_tests('-\n     def test_kept(self):\n'), [])
 
 
 class Untrusted(unittest.TestCase):
