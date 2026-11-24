@@ -66,7 +66,7 @@ class AbbrExtension(Extension):
     def load_glossary(self, dictionary: dict[str, str]):
         """Adds `dictionary` to our glossary. Any abbreviations that already exist will be overwritten."""
         if dictionary:
-            self.glossary = {**dictionary, **self.glossary}
+            self.glossary = {**self.glossary, **dictionary}
 
     def extendMarkdown(self, md):
         """

@@ -186,39 +186,6 @@ class TestAbbr(TestCase):
             extensions=[AbbrExtension(glossary={'HTML': '', 'W3C': 'World Wide Web Consortium'})]
         )
 
-    def test_abbr_glossary_2(self):
-
-        glossary = {
-            "ABBR": "Abbreviation",
-            "abbr": "Abbreviation",
-            "HTML": "Hyper Text Markup Language",
-            "W3C": "World Wide Web Consortium"
-        }
-
-        glossary_2 = {
-            "ABBR": "New Abbreviation"
-        }
-
-        abbr_ext = AbbrExtension(glossary=glossary)
-        abbr_ext.load_glossary(glossary_2)
-
-        self.assertMarkdownRenders(
-            self.dedent(
-                """
-                ABBR abbr HTML W3C
-                """
-            ),
-            self.dedent(
-                """
-                <p><abbr title="New Abbreviation">ABBR</abbr> """
-                + """<abbr title="Abbreviation">abbr</abbr> """
-                + """<abbr title="Hyper Text Markup Language">HTML</abbr> """
-                + """<abbr title="World Wide Web Consortium">W3C</abbr></p>
-                """
-            ),
-            extensions=[abbr_ext]
-        )
-
     def test_abbr_glossary_override(self):
 
         glossary = {
@@ -600,3 +567,10 @@ class TestAbbr(TestCase):
         self.assertEqual(ext.abbrs, {})
         md.convert('*[foo]: Foo Definition')
         self.assertEqual(ext.abbrs, {'foo': 'Foo Definition'})
+
+    def test_load_glossary_overrides_after_loading(self):
+        ext = AbbrExtension(glossary={'HTML': 'Old'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'New'})
+        md.reset()
+        self.assertEqual(md.convert('HTML'), '<p><abbr title="New">HTML</abbr></p>')
