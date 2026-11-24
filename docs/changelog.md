@@ -14,6 +14,11 @@ See the [Contributing Guide](contributing.md) for details.
 
 ## [Unreleased]
 
+### Added
+
+* Headings with the `no-toc` class (via `attr_list`) are excluded from the
+  `toc` extension's table of contents and `toc_tokens`.
+
 ### Fixed
 
 * Support automatic links with URL schemes other than HTTP and FTP, such as

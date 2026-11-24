@@ -129,6 +129,17 @@ The value of the `data-toc-label` attribute is sanitized and stripped of any HTM
 tags. However, `toc_tokens` will contain the raw content under
 `data-toc-label`.
 
+### Excluding Headings
+
+If this extension is used in conjunction with the [Attribute Lists Extension],
+a header with the class `no-toc` is omitted from the Table of Contents and from
+`toc_tokens`. The header still gets its `id`, anchor and permalink, and the ids
+of other headers are not affected. For example:
+
+```md
+## Changelog {: .no-toc }
+```
+
 Usage
 -----
 

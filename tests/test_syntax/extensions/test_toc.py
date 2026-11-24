@@ -1574,3 +1574,47 @@ class testStripTags(TestCase):
             strip_tags('foo &lt; &amp; &lt; bar'),
             'foo &lt; &amp; &lt; bar'
         )
+
+
+class TestTOCNoToc(TestCase):
+
+    def _tokens_a_usage(self):
+        return [{
+            'level': 1, 'id': 'a', 'name': 'A', 'html': 'A', 'data-toc-label': '',
+            'children': [{
+                'level': 2, 'id': 'usage', 'name': 'Usage', 'html': 'Usage',
+                'data-toc-label': '', 'children': []
+            }]
+        }]
+
+    def test_ac_001_no_toc_excluded_from_tokens(self):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        md.convert('# A\n\n## Changelog {: .no-toc }\n\n## Usage')
+        self.assertEqual(md.toc_tokens, self._tokens_a_usage())
+
+    def test_ac_002_no_toc_with_other_class(self):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        md.convert('# A\n\n## Changelog {: .fancy .no-toc }\n\n## Usage')
+        self.assertNotIn('Changelog', md.toc)
+        self.assertIn('#usage', md.toc)
+        self.assertEqual(md.toc_tokens, self._tokens_a_usage())
+
+    def test_ac_003_no_toc_keeps_id_and_permalink(self):
+        md = Markdown(extensions=['toc', 'attr_list'], extension_configs={'toc': {'permalink': True}})
+        html = md.convert('# A\n\n## Changelog {: .no-toc }')
+        self.assertIn('id="changelog"', html)
+        self.assertIn('<a class="headerlink" href="#changelog" title="Permanent link">&para;</a>', html)
+        self.assertNotIn('Changelog', md.toc)
+
+    def test_ac_004_no_toc_duplicate_id_unchanged(self):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        html = md.convert('# A\n\n## Changelog {: .no-toc }\n\n## Changelog')
+        self.assertIn('id="changelog"', html)
+        self.assertIn('id="changelog_1"', html)
+        children = md.toc_tokens[0]['children']
+        self.assertEqual([c['id'] for c in children], ['changelog_1'])
+
+    def test_ac_005_similar_class_not_excluded(self):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        md.convert('# A\n\n## Fancy {: .fancy }\n\n## Near {: .no-toc-x }')
+        self.assertEqual([c['id'] for c in md.toc_tokens[0]['children']], ['fancy', 'near'])
