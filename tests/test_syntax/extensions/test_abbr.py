@@ -600,3 +600,40 @@ class TestAbbr(TestCase):
         self.assertEqual(ext.abbrs, {})
         md.convert('*[foo]: Foo Definition')
         self.assertEqual(ext.abbrs, {'foo': 'Foo Definition'})
+
+    def test_ac_001_load_glossary_overwrites_after_extend(self):
+        ext = AbbrExtension(glossary={'HTML': 'Old title', 'CSS': 'Cascading Style Sheets'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'Hyper Text Markup Language'})
+        md.reset()
+        self.assertEqual(
+            md.convert('HTML and CSS'),
+            '<p><abbr title="Hyper Text Markup Language">HTML</abbr> and '
+            '<abbr title="Cascading Style Sheets">CSS</abbr></p>'
+        )
+
+    def test_ac_002_load_glossary_twice_last_wins(self):
+        ext = AbbrExtension()
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'First'})
+        ext.load_glossary({'HTML': 'Second'})
+        md.reset()
+        self.assertEqual(md.convert('HTML'), '<p><abbr title="Second">HTML</abbr></p>')
+
+    def test_ac_003_preloaded_glossary_beats_config(self):
+        ext = AbbrExtension(glossary={'HTML': 'Config title'})
+        ext.load_glossary({'HTML': 'Preloaded title'})
+        md = Markdown(extensions=[ext])
+        self.assertEqual(md.convert('HTML'), '<p><abbr title="Preloaded title">HTML</abbr></p>')
+
+    def test_ac_004_document_definition_wins_then_glossary_after_reset(self):
+        ext = AbbrExtension(glossary={'HTML': 'Old title', 'CSS': 'Cascading Style Sheets'})
+        md = Markdown(extensions=[ext])
+        ext.load_glossary({'HTML': 'Glossary title'})
+        md.reset()
+        self.assertEqual(
+            md.convert('*[HTML]: Doc title\n\nHTML and CSS'),
+            '<p><abbr title="Doc title">HTML</abbr> and <abbr title="Cascading Style Sheets">CSS</abbr></p>'
+        )
+        md.reset()
+        self.assertEqual(md.convert('HTML'), '<p><abbr title="Glossary title">HTML</abbr></p>')
