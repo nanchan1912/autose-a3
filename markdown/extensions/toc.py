@@ -396,6 +396,8 @@ class TocTreeprocessor(Treeprocessor):
         for el in doc.iter():
             if isinstance(el.tag, str) and self.header_rgx.match(el.tag):
                 self.set_level(el)
+                if 'no-toc' in el.attrib.get('class', '').split():
+                    continue
                 innerhtml = render_inner_html(remove_fnrefs(el), self.md)
                 name = strip_tags(innerhtml)
 
